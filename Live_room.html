@@ -1,0 +1,96 @@
+<!DOCTYPE html><html><head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ANO-ACTI 4G - 360 JARVIS</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<style>
+body{margin:0;background:#020208;color:#00f2ff;font-family:monospace;overflow:hidden}
+#panel{position:absolute;top:10px;left:10px;background:rgba(10,20,40,0.85);border:1px solid #00f2ff;padding:14px;border-radius:10px;z-index:10;min-width:250px;box-shadow:0 0 20px #00f2ff44}
+#count{font-size:26px;font-weight:900;color:#fff;text-shadow:0 0 10px #00f2ff}
+.tag{padding:4px 12px;border-radius:20px;font-weight:bold;font-size:13px}
+.moving{background:#ff0033;box-shadow:0 0 10px #ff0033;color:#fff}
+.still{background:#00ff88;color:#000}
+#graph{position:absolute;bottom:10px;left:10px;right:10px;height:110px;background:rgba(0,0,0,0.8);border:1px solid #00f2ff44;border-radius:10px;z-index:10}
+#hint{position:absolute;top:10px;right:10px;background:rgba(0,0,0,0.7);padding:8px 12px;border-radius:8px;font-size:11px;color:#aaa;z-index:10}
+canvas{display:block}
+</style></head><body>
+<div id="panel">
+<div style="letter-spacing:3px;font-size:11px;opacity:0.7">SYSTEM: ANO-ACTI-4G // 360 RADAR</div>
+<div id="count">0 TARGETS</div>
+<div>RSSI <b><span id="rssi">--</span> dBm</b> | VAR <b><span id="var">--</span></b></div>
+<div style="margin-top:8px">STATUS <span id="stat" class="tag still">SCANNING</span></div>
+</div>
+<div id="hint">🖱️ Left Drag = 360 Ghumao<br>🖱️ Right Drag = Slide<br>🔍 Scroll = Zoom</div>
+<canvas id="graph"></canvas>
+<script>
+const roomData=[{"rssi":-35,"x":0,"y":0},{"rssi":-30,"x":1,"y":0},{"rssi":-27.8,"x":2,"y":0},{"rssi":-31,"x":0,"y":1},{"rssi":-51,"x":1,"y":1},{"rssi":-40,"x":2,"y":1},{"rssi":-26,"x":0,"y":2},{"rssi":-37.6,"x":1,"y":2},{"rssi":-23.8,"x":2,"y":2}];
+const scene=new THREE.Scene(); scene.fog=new THREE.Fog(0x020208,6,12);
+const camera=new THREE.PerspectiveCamera(60,innerWidth/innerHeight,0.1,1000);
+const renderer=new THREE.WebGLRenderer({antialias:true}); renderer.setSize(innerWidth,innerHeight);
+document.body.appendChild(renderer.domElement);
+camera.position.set(1.5,4,3.5);
+
+// === YAHI 360 WALA JAADU HAI ===
+const controls = new THREE.OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.target.set(1,0,1);
+controls.minDistance = 1;
+controls.maxDistance = 8;
+controls.maxPolarAngle = Math.PI/2 - 0.05;
+controls.update();
+
+const floor=new THREE.GridHelper(8,20,0x00f2ff,0x003344); floor.position.set(1,0,1); scene.add(floor);
+roomData.forEach(p=>{
+ let h=(p.rssi+60)/10; h=Math.max(0.2,Math.min(3,h));
+ let col=p.rssi>-30?0xff0033:0xffaa00;
+ let mat=new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:0.15});
+ let mesh=new THREE.Mesh(new THREE.BoxGeometry(0.9,h,0.9),mat);
+ mesh.position.set(p.x,h/2,p.y); scene.add(mesh);
+ let top=new THREE.Mesh(new THREE.BoxGeometry(0.9,0.05,0.9),new THREE.MeshBasicMaterial({color:col}));
+ top.position.set(p.x,h,p.y); scene.add(top);
+});
+scene.add(new THREE.AmbientLight(0x00f2ff,0.6));
+let humanGroup=new THREE.Group(); scene.add(humanGroup);
+function createHuman(x,y,moving,v){
+ const g=new THREE.Group(); const color=moving?0xff0033:0x00f2ff;
+ const cyl=new THREE.Mesh(new THREE.CylinderGeometry(0.15,0.18,0.9+v*0.1,16),new THREE.MeshBasicMaterial({color:color,transparent:true,opacity:0.9}));
+ cyl.position.y=0.7; g.add(cyl);
+ const head=new THREE.Mesh(new THREE.SphereGeometry(0.18,16,16),new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.9}));
+ head.position.y=1.25+v*0.1; g.add(head);
+ const beam=new THREE.Mesh(new THREE.CylinderGeometry(0.25,0.5,2.5,16),new THREE.MeshBasicMaterial({color:color,transparent:true,opacity:0.12,side:2}));
+ beam.position.y=1.2; g.add(beam);
+ const ring=new THREE.Mesh(new THREE.RingGeometry(0.3,0.45,24),new THREE.MeshBasicMaterial({color:color,side:2,transparent:true,opacity:0.8}));
+ ring.rotation.x=-Math.PI/2; ring.position.y=0.02; g.add(ring);
+ g.position.set(x,0,y); g.userData={moving:moving}; return g;
+}
+function estimatePeople(v){
+ if(v<1.5) return {count:1,moving:0}; if(v<4) return {count:1,moving:1};
+ if(v<9) return {count:2,moving:1}; if(v<15) return {count:2,moving:2};
+ if(v<22) return {count:3,moving:2}; return {count:3,moving:3};
+}
+function updateScene(varVal){
+ const est=estimatePeople(varVal);
+ while(humanGroup.children.length>0) humanGroup.remove(humanGroup.children[0]);
+ const pos=[[0.6,0.5],[1.4,0.6],[1,1.6],[0.3,1.7],[1.7,1.7]];
+ for(let i=0;i<est.count;i++){let mv=i<est.moving; let px=pos[i][0]+(Math.random()-0.5)*0.25; let py=pos[i][1]+(Math.random()-0.5)*0.25; humanGroup.add(createHuman(px,py,mv,varVal));}
+ document.getElementById('count').innerText=est.count+" TARGETS LOCKED";
+ document.getElementById('stat').innerText=est.moving>0?est.moving+" MOVING":"ALL STATIONARY";
+ document.getElementById('stat').className='tag '+(est.moving>0?'moving':'still');
+}
+const gCanvas=document.getElementById('graph'); const gCtx=gCanvas.getContext('2d');
+function resizeG(){gCanvas.width=innerWidth-20; gCanvas.height=110;} resizeG();
+let gData=[]; function pushGraph(r){
+ gData.push(r); if(gData.length>120) gData.shift();
+ gCtx.clearRect(0,0,gCanvas.width,gCanvas.height);
+ gCtx.strokeStyle='#00f2ff44'; gCtx.lineWidth=1; gCtx.beginPath(); for(let i=0;i<gCanvas.width;i+=40){gCtx.moveTo(i,0); gCtx.lineTo(i,gCanvas.height);} gCtx.stroke();
+ gCtx.strokeStyle='#00f2ff'; gCtx.lineWidth=2; gCtx.beginPath(); gData.forEach((v,i)=>{let x=(i/gData.length)*gCanvas.width; let y=gCanvas.height-((v+60)/40)*gCanvas.height; if(i==0) gCtx.moveTo(x,y); else gCtx.lineTo(x,y);}); gCtx.stroke();
+}
+let ws; function connect(){
+ ws=new WebSocket('ws://'+location.hostname+':8765');
+ ws.onmessage=(e)=>{const d=JSON.parse(e.data); document.getElementById('rssi').innerText=d.rssi; document.getElementById('var').innerText=d.variance.toFixed(2); pushGraph(d.rssi); updateScene(d.variance);};
+ ws.onclose=()=>setTimeout(connect,800);
+} connect();
+function animate(){requestAnimationFrame(animate); controls.update(); humanGroup.children.forEach(h=>{if(h.userData.moving){h.position.x+=(Math.random()-0.5)*0.05; h.position.z+=(Math.random()-0.5)*0.05;}}); renderer.render(scene,camera);} animate();
+window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth,innerHeight); resizeG();});
+</script></body></html>
