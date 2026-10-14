@@ -1,10 +1,13 @@
-# ANO-ACTI 4G 360 JARVIS - WiFi Human Detection System
+# ANO-ACTI 4G 360 JARVIS - WiFi Human Detection
+
 **No Camera, No Sensor, Only WiFi RSSI**
+### 🚀 WORKING 100% | 2 TARGETS LOCKED | 360° ROTATABLE
 
-### 🚀 Live Status: WORKING 100% | 2 TARGETS LOCKED | 360° ROTATABLE
+### 🎥 Live Demo Video
+https://github.com/abhisheksinghabhishek9319-bit/ANO-ACTI-WiFi-Human-Detection-360/raw/main/demo.mp4
 
-### 🎥 Live Demo
-https://github.com/abhisheksinghabhishek9319-bit/ANO-ACTI-WiFi-Human-Detection-360/blob/main/demo.mp4
+### Preview
+![Demo](./demo.mp4)
 
 ### 🧠 Architecture
 WiFi Router (RSSI Source) -> Kali Linux (wlan0 / Demo Mode) -> WebSocket Server (server.py) -> Live Radar UI (Live_room.html) -> Human Movement Detection
